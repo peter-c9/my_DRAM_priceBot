@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRAM & GPU 報價動態儀表板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+        select {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #f8fafc;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s;
+        }
+        select:hover {
+            border-color: #cbd5e1;
+        }
+        select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 50vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>📈 歷史報價與趨勢分析</h1>
+        
+        <div class="controls">
+            <select id="productSelect" onchange="loadChartData()">
+                <optgroup label="AI 伺服器 GPU">
+                    <option value="H100">NVIDIA H100</option>
+                    <option value="H200">NVIDIA H200</option>
+                    <option value="B200">NVIDIA B200</option>
+                    <option value="A100">NVIDIA A100</option>
+                    <option value="5090">RTX 5090</option>
+                </optgroup>
+                <optgroup label="大盤價格指數">
+                    <option value="DRAM Idx">DRAM 大盤指數 (DRAM Idx)</option>
+                    <option value="NAND Idx">NAND 大盤指數 (NAND Idx)</option>
+                </optgroup>
+                <optgroup label="記憶體顆粒 (DRAM)">
+                    <option value="D4 16G 3200">D4 16G 3200</option>
+                    <option value="D4 8G 3200">D4 8G 3200</option>
+                    <option value="D4 8G eTT">D4 8G eTT</option>
+                    <option value="D5 16G 4800">D5 16G 4800</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="chart-wrapper">
+            <canvas id="priceChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null; // 儲存圖表實例
+
+        async function loadChartData() {
+            const productName = document.getElementById('productSelect').value;
+            // 指定讀取 Price_Data 資料夾下的 CSV 檔案
+            // const csvUrl = `Price_Data/${productName}.csv`;
+            const csvUrl = `報價資料夾/${productName}.csv`;
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) {
+                    throw new Error("找不到該產品的資料，請確認 Python 是否已抓取該產品。");
+                }
+
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                
+                const dates = [];
+                const prices = [];
+
+                // 從第 2 行開始解析 (跳過 Date,Price,Day,30D 標題行)
+                for (let i = 1; i < lines.length; i++) {
+                    // 處理可能帶有引號的 CSV 格式，簡單用逗號分割
+                    const cols = lines[i].split(',');
+                    if (cols.length >= 2) {
+                        dates.push(cols[0].trim()); 
+                        prices.push(parseFloat(cols[1].trim())); 
+                    }
+                }
+
+                renderChart(productName, dates, prices);
+
+            } catch (error) {
+                console.error(error);
+                alert(error.message);
+                if (myChart) myChart.destroy();
+            }
+        }
+
+        function renderChart(label, dates, prices) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+
+            if (myChart) {
+                myChart.destroy(); // 畫新圖前先清除舊圖
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: `${label} 價格走勢`,
+                        data: prices,
+                        borderColor: '#3b82f6', // 現代感藍色
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#3b82f6',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.3 // 線條平滑度
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleFont: { size: 14 },
+                            bodyFont: { size: 14 },
+                            padding: 12,
+                            displayColors: false
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { size: 14, family: "'Segoe UI', sans-serif" }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxRotation: 45, minRotation: 45 }
+                        },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // 網頁載入完成後，自動觸發一次畫圖
+        window.addEventListener('DOMContentLoaded', loadChartData);
+    </script>
+</body>
+</html>

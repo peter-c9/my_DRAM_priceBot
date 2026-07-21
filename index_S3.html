@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專業硬體報價動態系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        
+        /* 基礎暗色模式設定 */
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+            transition: all 0.3s;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+
+        /* 標題與控制面板 (參考您的 Panel 設計) */
+        h1 {
+            text-align: center;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            margin-bottom: 20px;
+        }
+        .panel {
+            background-color: #1e1e1e; 
+            padding: 20px; 
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8); 
+            margin-bottom: 20px;
+            border-left: 5px solid #f1c40f;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        /* 下拉選單與按鈕設計 */
+        .setting-group {
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            font-size: 18px;
+            background-color: #2a2a2a; 
+            padding: 10px 20px; 
+            border-radius: 5px;
+            border: 1px solid #00ffff;
+        }
+        .setting-group label {
+            color: #00ffff;
+            font-weight: bold;
+        }
+        select {
+            background-color: #121212;
+            color: #f1c40f;
+            border: 1px solid #555;
+            padding: 8px 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            outline: none;
+        }
+        select:focus { border-color: #00ffff; }
+
+        .btn {
+            background-color: #3498db; 
+            color: white; 
+            border: none;
+            padding: 12px 20px; 
+            border-radius: 5px; 
+            cursor: pointer;
+            font-size: 16px; 
+            font-weight: bold; 
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .btn:hover { background-color: #2980b9; transform: translateY(-2px); }
+        .btn-warning { background-color: #e67e22; }
+        .btn-warning:hover { background-color: #d35400; }
+
+        /* 圖表顯示區 */
+        .chart-wrapper {
+            background-color: #1a1a1a;
+            border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            padding: 20px 15px; 
+            width: 100%;
+            height: 65vh;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>📊 DRAM & GPU 專業報價觀測台</h1>
+        
+        <div class="panel">
+            <div class="setting-group">
+                <label for="productSelect">🎯 分析標的:</label>
+                <select id="productSelect" onchange="loadChartData()">
+                    <optgroup label="AI 伺服器 GPU">
+                        <option value="H100">NVIDIA H100</option>
+                        <option value="H200">NVIDIA H200</option>
+                        <option value="B200">NVIDIA B200</option>
+                        <option value="A100">NVIDIA A100</option>
+                        <option value="5090">RTX 5090</option>
+                    </optgroup>
+                    <optgroup label="大盤價格指數">
+                        <option value="DRAM Idx">DRAM 大盤指數</option>
+                        <option value="NAND Idx">NAND 大盤指數</option>
+                    </optgroup>
+                    <optgroup label="記憶體顆粒">
+                        <option value="D4 16G 3200">D4 16G 3200</option>
+                        <option value="D4 8G 3200">D4 8G 3200</option>
+                        <option value="D4 8G eTT">D4 8G eTT</option>
+                        <option value="D5 16G 4800">D5 16G 4800</option>
+                    </optgroup>
+                </select>
+            </div>
+            
+            <button class="btn" onclick="changeFontSize(2)">A+ 放大字體</button>
+            <button class="btn btn-warning" onclick="changeFontSize(-2)">A- 縮小字體</button>
+        </div>
+
+        <div class="chart-wrapper">
+            <canvas id="priceChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+        let globalFontSize = 16; // 預設字體大小
+        let currentDates = [];
+        let currentPrices = [];
+        let currentProductName = "";
+
+        // 調整字體大小的功能
+        function changeFontSize(delta) {
+            globalFontSize += delta;
+            // 限制字體大小在合理範圍 10px ~ 36px
+            if (globalFontSize < 10) globalFontSize = 10;
+            if (globalFontSize > 36) globalFontSize = 36;
+            
+            // 如果已經有資料，直接重繪圖表來套用新字體
+            if (currentDates.length > 0) {
+                renderChart(currentProductName, currentDates, currentPrices);
+            }
+        }
+
+        async function loadChartData() {
+            currentProductName = document.getElementById('productSelect').value;
+            const csvUrl = `報價資料夾/${currentProductName}.csv`; // 指向您的報價資料夾
+
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error(`找不到 ${currentProductName} 的歷史資料。`);
+
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                
+                currentDates = [];
+                currentPrices = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',');
+                    if (cols.length >= 2) {
+                        currentDates.push(cols[0].trim()); 
+                        currentPrices.push(parseFloat(cols[1].trim())); 
+                    }
+                }
+                renderChart(currentProductName, currentDates, currentPrices);
+
+            } catch (error) {
+                alert(error.message);
+                if (myChart) myChart.destroy();
+            }
+        }
+
+        function renderChart(label, dates, prices) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            // 建立鮮豔的霓虹青色漸層背景
+            let gradient = ctx.createLinearGradient(0, 0, 0, 600);
+            gradient.addColorStop(0, 'rgba(0, 255, 255, 0.5)'); 
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0.0)');
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: `${label} (單位: USD)`,
+                        data: prices,
+                        borderColor: '#00ffff',     // 霓虹青色線條
+                        backgroundColor: gradient,  // 漸層填滿
+                        borderWidth: 4,             // 粗線條
+                        pointBackgroundColor: '#121212', // 點內部顏色(與背景同色)
+                        pointBorderColor: '#00ffff',     // 點外框顏色
+                        pointBorderWidth: 3,
+                        pointRadius: 5,             // 實體點大小
+                        pointHoverRadius: 10,       // 滑鼠碰到時超級放大
+                        pointHoverBackgroundColor: '#f1c40f', // 碰到變螢光黃
+                        pointHoverBorderColor: '#fff',
+                        fill: true,
+                        tension: 0.1 // 微微平滑
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#f1c40f', // 圖例螢光黃
+                                font: { size: globalFontSize + 4, weight: 'bold', family: '"Microsoft JhengHei", sans-serif' }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(20, 20, 20, 0.95)', // 深色幾乎不透明底
+                            borderColor: '#00ffff',
+                            borderWidth: 2,
+                            titleColor: '#f1c40f', // 提示框標題(日期)螢光黃
+                            bodyColor: '#ffffff',  // 提示框內容(價格)純白
+                            titleFont: { size: globalFontSize + 2, weight: 'bold' },
+                            bodyFont: { size: globalFontSize + 6, weight: 'bold' }, // 價格字體特別大
+                            padding: 15,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `成交價： ${context.parsed.y} $`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#333333' }, // 暗色網格
+                            ticks: {
+                                color: '#e0e0e0',
+                                font: { size: globalFontSize, weight: 'bold' },
+                                maxRotation: 45, minRotation: 45
+                            }
+                        },
+                        y: {
+                            grid: { color: '#333333', borderDash: [5, 5] },
+                            ticks: {
+                                color: '#00ffff', // Y軸數字霓虹青色
+                                font: { size: globalFontSize + 2, weight: 'bold' },
+                                callback: function(value) { return value + ' $'; }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 預設啟動
+        window.addEventListener('DOMContentLoaded', loadChartData);
+    </script>
+</body>
+</html>
