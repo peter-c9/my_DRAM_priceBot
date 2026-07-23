@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業硬體與股市報價動態系統</title>
+    <title>專業硬體報價動態系統</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -55,11 +55,6 @@
             color: #00ffff;
             font-weight: bold;
         }
-        
-        /* 針對股市選單的專屬顏色標示 */
-        .stock-group { border-color: #ff00ff; }
-        .stock-group label { color: #ff00ff; }
-
         select, input[type="number"] {
             background-color: #121212;
             color: #f1c40f;
@@ -109,12 +104,11 @@
 <body>
 
     <div class="container">
-        <h1>📊 DRAM & GPU 專業報價雙軸觀測台</h1>
+        <h1>📊 DRAM & GPU 專業報價觀測台</h1>
         
         <div class="panel">
-            <!-- 1. 主分析標的 (左軸) -->
             <div class="setting-group">
-                <label for="productSelect">🎯 主標的:</label>
+                <label for="productSelect">🎯 分析標的:</label>
                 <select id="productSelect" onchange="loadChartData()">
                     <optgroup label="AI 伺服器 GPU">
                         <option value="H100">NVIDIA H100</option>
@@ -136,20 +130,9 @@
                 </select>
             </div>
 
-            <!-- 2. 股市對比標的 (右軸) -->
-            <div class="setting-group stock-group">
-                <label for="stockSelect">📈 對比股市:</label>
-                <select id="stockSelect" onchange="loadChartData()">
-                    <option value="none">無 (單一顯示)</option>
-                    <option value="NVDA">NVIDIA 股票 (NVDA)</option>
-                    <option value="DRAM_ETF">半導體 ETF (SMH)</option>
-                </select>
-            </div>
-
-            <!-- 3. 共用的均線週期設定 -->
             <div class="setting-group ma-group">
-                <label for="maPeriodInput">📉 均線週期 (SMA):</label>
-                <input type="number" id="maPeriodInput" value="5" min="1" max="100" oninput="loadChartData()">
+                <label for="maPeriodInput">📈 均線週期 (SMA):</label>
+                <input type="number" id="maPeriodInput" value="5" min="1" max="100" oninput="updateChartDisplay()">
             </div>
             
             <button class="btn" onclick="changeFontSize(2)">A+ 放大字體</button>
@@ -164,8 +147,10 @@
     <script>
         let myChart = null;
         let globalFontSize = 16; 
+        let currentDates = [];
+        let currentPrices = [];
+        let currentProductName = "";
 
-        // 獨立的 SMA 計算公式
         function calculateSMA(data, period) {
             let sma = [];
             for (let i = 0; i < data.length; i++) {
@@ -182,80 +167,41 @@
             return sma;
         }
 
+        function updateChartDisplay() {
+            if (currentDates.length > 0) {
+                renderChart(currentProductName, currentDates, currentPrices);
+            }
+        }
+
         function changeFontSize(delta) {
             globalFontSize += delta;
             if (globalFontSize < 10) globalFontSize = 10;
             if (globalFontSize > 36) globalFontSize = 36;
-            loadChartData(); // 重新讀取與繪製
+            updateChartDisplay();
         }
 
         async function loadChartData() {
-            const primaryProduct = document.getElementById('productSelect').value;
-            const secondaryProduct = document.getElementById('stockSelect').value;
-            const maPeriod = parseInt(document.getElementById('maPeriodInput').value) || 5;
-            
-            let primaryDates = [];
-            let primaryPrices = [];
-            let alignedSecondaryPrices = [];
-            let alignedSecondarySMA = [];
+            currentProductName = document.getElementById('productSelect').value;
+            const csvUrl = `報價資料夾/${currentProductName}.csv`; 
 
             try {
-                // 1. 抓取主要硬體報價
-                const res1 = await fetch(`報價資料夾/${primaryProduct}.csv`);
-                if (!res1.ok) throw new Error(`找不到 ${primaryProduct} 的歷史資料。`);
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error(`找不到 ${currentProductName} 的歷史資料。`);
 
-                const text1 = await res1.text();
-                const lines1 = text1.trim().split('\n');
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
                 
-                for (let i = 1; i < lines1.length; i++) {
-                    const cols = lines1[i].split(',');
+                currentDates = [];
+                currentPrices = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',');
                     if (cols.length >= 2) {
-                        primaryDates.push(cols[0].trim()); 
-                        primaryPrices.push(parseFloat(cols[1].trim())); 
+                        currentDates.push(cols[0].trim()); 
+                        currentPrices.push(parseFloat(cols[1].trim())); 
                     }
                 }
-
-                // 2. 如果有選擇股市對比，則抓取股市資料
-                if (secondaryProduct !== "none") {
-                    try {
-                        const res2 = await fetch(`報價資料夾/${secondaryProduct}.csv`);
-                        if (res2.ok) {
-                            const text2 = await res2.text();
-                            const lines2 = text2.trim().split('\n');
-                            
-                            let stockDates = [];
-                            let stockPrices = [];
-                            
-                            for (let i = 1; i < lines2.length; i++) {
-                                const cols = lines2[i].split(',');
-                                if (cols.length >= 2) {
-                                    stockDates.push(cols[0].trim());
-                                    stockPrices.push(parseFloat(cols[1].trim()));
-                                }
-                            }
-
-                            // 針對連續的股市資料計算其獨立的 SMA
-                            const stockSMA = calculateSMA(stockPrices, maPeriod);
-
-                            // 建立字典，以便將股市日期與主要硬體日期對齊 (因為股市週末不開盤)
-                            let priceMap = {};
-                            let smaMap = {};
-                            for (let i = 0; i < stockDates.length; i++) {
-                                priceMap[stockDates[i]] = stockPrices[i];
-                                smaMap[stockDates[i]] = stockSMA[i];
-                            }
-
-                            // 依照硬體的日期，把對應的股市價格跟均線排進去，如果週末沒開盤則補 null 斷線
-                            alignedSecondaryPrices = primaryDates.map(d => priceMap[d] !== undefined ? priceMap[d] : null);
-                            alignedSecondarySMA = primaryDates.map(d => smaMap[d] !== undefined ? smaMap[d] : null);
-                        }
-                    } catch (e) {
-                        console.warn("股市資料讀取失敗或檔案尚不存在", e);
-                    }
-                }
-
-                // 繪製圖表
-                renderChart(primaryProduct, secondaryProduct, primaryDates, primaryPrices, alignedSecondaryPrices, alignedSecondarySMA, maPeriod);
+                updateChartDisplay(); 
 
             } catch (error) {
                 alert(error.message);
@@ -263,89 +209,53 @@
             }
         }
 
-        function renderChart(label1, label2, dates, prices1, prices2, sma2, maPeriod) {
+        function renderChart(label, dates, prices) {
             const ctx = document.getElementById('priceChart').getContext('2d');
             if (myChart) myChart.destroy();
 
-            const smaData1 = calculateSMA(prices1, maPeriod);
+            const maPeriod = parseInt(document.getElementById('maPeriodInput').value) || 5;
+            const smaData = calculateSMA(prices, maPeriod);
 
             let gradient = ctx.createLinearGradient(0, 0, 0, 600);
             gradient.addColorStop(0, 'rgba(0, 255, 255, 0.5)'); 
             gradient.addColorStop(1, 'rgba(0, 255, 255, 0.0)');
 
-            // 基礎資料集：硬體報價與其均線 (對應左側 Y 軸)
-            let datasets = [
-                {
-                    label: `${label1} (主軸)`,
-                    data: prices1,
-                    borderColor: '#00ffff',     
-                    backgroundColor: gradient,  
-                    borderWidth: 4,             
-                    pointBackgroundColor: '#121212', 
-                    pointBorderColor: '#00ffff',     
-                    pointBorderWidth: 3,
-                    pointRadius: 5,             
-                    pointHoverRadius: 10,       
-                    pointHoverBackgroundColor: '#f1c40f', 
-                    fill: true,
-                    tension: 0.1,
-                    yAxisID: 'y', // 指定左軸
-                    order: 4 
-                },
-                {
-                    label: `${label1} SMA(${maPeriod})`,
-                    data: smaData1,
-                    borderColor: '#ff6600', 
-                    borderWidth: 5,         
-                    pointRadius: 0,         
-                    pointHoverRadius: 7,    
-                    fill: false,
-                    tension: 0.4,           
-                    yAxisID: 'y', // 指定左軸
-                    spanGaps: true,
-                    order: 3 
-                }
-            ];
-
-            // 若有選擇股市資料，則動態加入圖表中 (對應右側 Y1 軸)
-            if (label2 !== "none") {
-                datasets.push({
-                    label: `${label2} (對比軸)`,
-                    data: prices2,
-                    borderColor: '#ff00ff', // 紫紅色做明顯區別
-                    borderWidth: 3,
-                    borderDash: [5, 5], // 價格線用虛線呈現對比感
-                    pointBackgroundColor: '#121212',
-                    pointBorderColor: '#ff00ff',
-                    pointRadius: 4,
-                    pointHoverRadius: 8,
-                    fill: false,
-                    tension: 0.1,
-                    yAxisID: 'y1', // 指定右軸
-                    spanGaps: true, // 允許跨過週末不斷線
-                    order: 2
-                });
-
-                datasets.push({
-                    label: `${label2} SMA(${maPeriod})`,
-                    data: sma2,
-                    borderColor: '#a200ff', // 深紫色均線
-                    borderWidth: 4,
-                    pointRadius: 0,
-                    pointHoverRadius: 7,
-                    fill: false,
-                    tension: 0.4,
-                    yAxisID: 'y1', // 指定右軸
-                    spanGaps: true, // 允許跨過週末不斷線
-                    order: 1
-                });
-            }
-
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: dates,
-                    datasets: datasets
+                    datasets: [
+                        {
+                            label: `${label} (單位: USD)`,
+                            data: prices,
+                            borderColor: '#00ffff',     
+                            backgroundColor: gradient,  
+                            borderWidth: 4,             
+                            pointBackgroundColor: '#121212', 
+                            pointBorderColor: '#00ffff',     
+                            pointBorderWidth: 3,
+                            pointRadius: 5,             
+                            pointHoverRadius: 10,       
+                            pointHoverBackgroundColor: '#f1c40f', 
+                            pointHoverBorderColor: '#fff',
+                            fill: true,
+                            tension: 0.1,
+                            order: 2 
+                        },
+                        {
+                            label: `SMA (${maPeriod}) 均線`,
+                            data: smaData,
+                            borderColor: '#ff6600', 
+                            borderWidth: 5,         
+                            pointRadius: 0,         
+                            pointHoverRadius: 7,    
+                            pointBackgroundColor: '#121212',
+                            pointHoverBackgroundColor: '#ff6600',
+                            fill: false,
+                            tension: 0.4,           
+                            order: 1 
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -355,7 +265,7 @@
                         legend: {
                             labels: {
                                 color: '#e0e0e0',
-                                font: { size: globalFontSize, weight: 'bold', family: '"Microsoft JhengHei", sans-serif' }
+                                font: { size: globalFontSize + 4, weight: 'bold', family: '"Microsoft JhengHei", sans-serif' }
                             }
                         },
                         tooltip: {
@@ -364,8 +274,8 @@
                             borderWidth: 2,
                             titleColor: '#f1c40f', 
                             bodyColor: '#ffffff',  
-                            titleFont: { size: globalFontSize, weight: 'bold' },
-                            bodyFont: { size: globalFontSize + 2, weight: 'bold' }, 
+                            titleFont: { size: globalFontSize + 2, weight: 'bold' },
+                            bodyFont: { size: globalFontSize + 4, weight: 'bold' }, 
                             padding: 15,
                             usePointStyle: true,
                             callbacks: {
@@ -378,21 +288,25 @@
                     scales: {
                         x: {
                             grid: {
+                                // 動態設定網格線顏色：遇到換月時變成白色
                                 color: function(context) {
                                     if (context.index > 0) {
                                         const curr = dates[context.index];
                                         const prev = dates[context.index - 1];
                                         if (curr && prev && curr.substring(0, 7) !== prev.substring(0, 7)) {
-                                            return 'rgba(255, 255, 255, 0.7)';
+                                            return 'rgba(255, 255, 255, 0.7)'; // 換月白線
                                         }
                                     }
-                                    return '#333333';
+                                    return '#333333'; // 預設暗色網格
                                 },
+                                // 動態設定網格線寬與樣式
                                 lineWidth: function(context) {
                                     if (context.index > 0) {
                                         const curr = dates[context.index];
                                         const prev = dates[context.index - 1];
-                                        if (curr && prev && curr.substring(0, 7) !== prev.substring(0, 7)) return 2;
+                                        if (curr && prev && curr.substring(0, 7) !== prev.substring(0, 7)) {
+                                            return 2; // 換月線條加粗
+                                        }
                                     }
                                     return 1;
                                 },
@@ -400,7 +314,9 @@
                                     if (context.index > 0) {
                                         const curr = dates[context.index];
                                         const prev = dates[context.index - 1];
-                                        if (curr && prev && curr.substring(0, 7) !== prev.substring(0, 7)) return [6, 6];
+                                        if (curr && prev && curr.substring(0, 7) !== prev.substring(0, 7)) {
+                                            return [6, 6]; // 換月變虛線
+                                        }
                                     }
                                     return [];
                                 },
@@ -409,56 +325,45 @@
                             ticks: {
                                 color: '#e0e0e0',
                                 font: { size: globalFontSize, weight: 'bold' },
-                                maxRotation: 0,
+                                maxRotation: 0, // 強制標籤不旋轉（水平顯示）
                                 minRotation: 0,
                                 autoSkip: true,
                                 maxTicksLimit: 40,
+                                // 動態回傳陣列來達成「換行顯示」的效果
                                 callback: function(value, index) {
                                     const dateStr = dates[index];
                                     if (!dateStr) return '';
+                                    
                                     const parts = dateStr.split('-');
                                     if (parts.length !== 3) return dateStr;
+                                    
                                     const yearMonth = `${parts[0]}-${parts[1]}`;
                                     const day = parts[2];
-                                    if (index === 0) return [day, yearMonth];
+                                    
+                                    if (index === 0) {
+                                        return [day, yearMonth];
+                                    }
+                                    
                                     const prevDateStr = dates[index - 1];
                                     if (!prevDateStr) return [day, yearMonth];
+
                                     const prevYearMonth = prevDateStr.substring(0, 7);
-                                    if (yearMonth !== prevYearMonth) return [day, yearMonth];
-                                    else return [day, ''];
+                                    
+                                    // 若本筆資料與前一筆「月份不同」，則第二行顯示年月，否則第二行留空白對齊
+                                    if (yearMonth !== prevYearMonth) {
+                                        return [day, yearMonth];
+                                    } else {
+                                        return [day, ''];
+                                    }
                                 }
                             }
                         },
                         y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: '硬體報價 (左軸)',
-                                color: '#00ffff',
-                                font: { size: globalFontSize, weight: 'bold' }
-                            },
                             grid: { color: '#333333', borderDash: [5, 5] },
                             ticks: {
                                 color: '#00ffff', 
-                                font: { size: globalFontSize, weight: 'bold' }
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: (label2 !== "none"), // 只有在有選擇股市時才顯示右軸
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: '股市報價 (右軸)',
-                                color: '#ff00ff',
-                                font: { size: globalFontSize, weight: 'bold' }
-                            },
-                            grid: { drawOnChartArea: false }, // 右軸不畫網格，避免與左軸網格打架變混亂
-                            ticks: {
-                                color: '#ff00ff',
-                                font: { size: globalFontSize, weight: 'bold' }
+                                font: { size: globalFontSize + 2, weight: 'bold' },
+                                callback: function(value) { return value + ' $'; }
                             }
                         }
                     }
