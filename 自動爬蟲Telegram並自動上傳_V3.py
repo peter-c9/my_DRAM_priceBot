@@ -72,6 +72,8 @@ async def main():
     
     stock_targets = {
         'NVDA': 'NVDA',
+        'TSM': 'TSM',
+        'SMH_ETF': 'SMH',
         'DRAM_ETF': 'DRAM'  # 提醒：美股目前沒有代號為 DRAM 的 ETF，這裡先幫你用半導體 ETF(SMH) 替代，如有特定代號可自行修改
     }
     
