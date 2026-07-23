@@ -136,15 +136,13 @@
                 </select>
             </div>
 
-            <!-- 2. 股市對比標的 (右軸) 💡 這裡幫你擴充了四個新選項 -->
+            <!-- 2. 股市對比標的 (右軸) -->
             <div class="setting-group stock-group">
                 <label for="stockSelect">📈 對比股市:</label>
                 <select id="stockSelect" onchange="loadChartData()">
                     <option value="none">無 (單一顯示)</option>
-                    <option value="NVDA">NVIDIA (NVDA)</option>
-                    <option value="TSM">台積電 ADR (TSM)</option>
-                    <option value="SMH_ETF">半導體 ETF (SMH)</option>
-                    <option value="DRAM_ETF">記憶體 ETF (DRAM)</option>
+                    <option value="NVDA">NVIDIA 股票 (NVDA)</option>
+                    <option value="DRAM_ETF">半導體 ETF (SMH)</option>
                 </select>
             </div>
 
@@ -311,15 +309,8 @@
 
             // 若有選擇股市資料，則動態加入圖表中 (對應右側 Y1 軸)
             if (label2 !== "none") {
-                // 為了讓圖例顯示更友善，這裡做個小轉換，把代號轉成中文
-                let stockDisplayName = label2;
-                if (label2 === "NVDA") stockDisplayName = "NVIDIA";
-                if (label2 === "TSM") stockDisplayName = "台積電 ADR";
-                if (label2 === "SMH_ETF") stockDisplayName = "半導體 ETF";
-                if (label2 === "DRAM_ETF") stockDisplayName = "記憶體 ETF";
-
                 datasets.push({
-                    label: `${stockDisplayName} (對比軸)`,
+                    label: `${label2} (對比軸)`,
                     data: prices2,
                     borderColor: '#ff00ff', // 紫紅色做明顯區別
                     borderWidth: 3,
@@ -336,7 +327,7 @@
                 });
 
                 datasets.push({
-                    label: `${stockDisplayName} SMA(${maPeriod})`,
+                    label: `${label2} SMA(${maPeriod})`,
                     data: sma2,
                     borderColor: '#a200ff', // 深紫色均線
                     borderWidth: 4,
