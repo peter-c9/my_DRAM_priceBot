@@ -10,7 +10,7 @@ from datetime import timezone, timedelta
 # 1. 讀取登入鑰匙 (因為要在本機跑，請確保這裡填寫的是真實資料)
 api_id = int(os.environ.get('TG_API_ID', '35016246')) # 如果在自己電腦測試，把 123456 換成你的 ID
 api_hash = os.environ.get('TG_API_HASH', 'f91ac54a5743e1982affcfb7e8f56ce1')
-session_string = os.environ.get('TG_SESSION', '1BVtsOKwBu7Q8Xef_fsg5IQb4_X94vuinMQPON16I_YtO-Ju91KeVwZyOYgntZ3TWPI0CJU39XhP5lmmzXLOXH1aLxL09Z2JZBt3hf7yqnFM2GLXpV_sYCbMQUSUjLkUzhHiYlEt7nliKJ5JizA3KH2YqmfKGxO-0S3qkbJ813VlDACvksj6YVfkz1Vtn2fZx6McTIzzan1Mwohk_jLhuO_zxRjO_3I7HSeQjZ_wyCPIh8nnK-mnY6_kJoESmsKmLpW2HURMl6gkPNrULW55uoER_VASDbwUzQ3JoQRyPBe1ozJPn4AfB2SGxC0yJOrC03votSvsbTblPXOMkeyBw94YAHni_HmM=')
+session_string = os.environ.get('TG_SESSION', '1BVtsOKsBu21E43EZQ6O0dYSORzFR4kg6zC6WvES64b6lFuPdIkNzusK1CNR0nHAmxhrwmXa449SDsX7hI0xhijKmhjlKL1oT1wbyar4ElIMFzPJ7RvOM5yYCwb4ZOppgHRlVJmr5nulK5EZYDB5BYlXnXRwZfYLR7OF90HS8UT7mh9V8KT9d-lIjM5pVCRKe117-QE6qxWWVLEUDgy_BpT74_pHmRHeBDYscQGw7j07zqKAsuhsIp0GKsVjAYAhZsuhQQQs3qIbF2k1VXTMRJ8XKcAMjdPvmX8bvsOWOgwNNlYZmLNDArwaiaT-QMV4sczowi2aVxlc1VeF8abiJOimZxxLWAXA=')
 
 
 client = TelegramClient(StringSession(session_string), api_id, api_hash)
