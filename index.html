@@ -27,6 +27,8 @@
             text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
             margin-bottom: 20px;
         }
+        
+        /* 調整 panel 使其支援上下兩排排版 */
         .panel {
             background-color: #1e1e1e; 
             padding: 20px; 
@@ -35,10 +37,18 @@
             margin-bottom: 20px;
             border-left: 5px solid #f1c40f;
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column; /* 改為垂直排列來切分上下排 */
             align-items: center;
+            gap: 15px;
+        }
+
+        /* 新增用來包覆上下排的容器 */
+        .panel-row {
+            display: flex;
+            flex-wrap: wrap;
             justify-content: center;
             gap: 20px;
+            width: 100%;
         }
 
         .setting-group {
@@ -79,21 +89,11 @@
         .ma-group input[type="number"] { color: #ff6600; width: 80px; }
         .ma-group input[type="number"]:focus { border-color: #ff6600; }
 
-        .btn {
-            background-color: #3498db; 
-            color: white; 
-            border: none;
-            padding: 12px 20px; 
-            border-radius: 5px; 
-            cursor: pointer;
-            font-size: 16px; 
-            font-weight: bold; 
-            transition: all 0.3s;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-        }
-        .btn:hover { background-color: #2980b9; transform: translateY(-2px); }
-        .btn-warning { background-color: #e67e22; }
-        .btn-warning:hover { background-color: #d35400; }
+        /* 新增字體設定的專屬樣式 */
+        .font-group { border-color: #3498db; }
+        .font-group label { color: #3498db; }
+        .font-group input[type="number"] { color: #3498db; width: 80px; }
+        .font-group input[type="number"]:focus { border-color: #3498db; }
 
         .chart-wrapper {
             background-color: #1a1a1a;
@@ -112,50 +112,59 @@
         <h1>📊 DRAM & GPU 專業報價雙軸觀測台</h1>
         
         <div class="panel">
-            <!-- 1. 主分析標的 (左軸) -->
-            <div class="setting-group">
-                <label for="productSelect">🎯 主標的:</label>
-                <select id="productSelect" onchange="loadChartData()">
-                    <optgroup label="AI 伺服器 GPU">
-                        <option value="H100">NVIDIA H100</option>
-                        <option value="H200">NVIDIA H200</option>
-                        <option value="B200">NVIDIA B200</option>
-                        <option value="A100">NVIDIA A100</option>
-                        <option value="5090">RTX 5090</option>
-                    </optgroup>
-                    <optgroup label="大盤價格指數">
-                        <option value="DRAM Idx">DRAM 大盤指數</option>
-                        <option value="NAND Idx">NAND 大盤指數</option>
-                    </optgroup>
-                    <optgroup label="記憶體顆粒">
-                        <option value="D4 16G 3200">D4 16G 3200</option>
-                        <option value="D4 8G 3200">D4 8G 3200</option>
-                        <option value="D4 8G eTT">D4 8G eTT</option>
-                        <option value="D5 16G 4800">D5 16G 4800</option>
-                    </optgroup>
-                </select>
+            <!-- 上排：下拉選單 (主標的 & 對比股市) -->
+            <div class="panel-row">
+                <!-- 1. 主分析標的 (左軸) -->
+                <div class="setting-group">
+                    <label for="productSelect">🎯 主標的:</label>
+                    <select id="productSelect" onchange="loadChartData()">
+                        <optgroup label="AI 伺服器 GPU">
+                            <option value="H100">NVIDIA H100</option>
+                            <option value="H200">NVIDIA H200</option>
+                            <option value="B200">NVIDIA B200</option>
+                            <option value="A100">NVIDIA A100</option>
+                            <option value="5090">RTX 5090</option>
+                        </optgroup>
+                        <optgroup label="大盤價格指數">
+                            <option value="DRAM Idx">DRAM 大盤指數</option>
+                            <option value="NAND Idx">NAND 大盤指數</option>
+                        </optgroup>
+                        <optgroup label="記憶體顆粒">
+                            <option value="D4 16G 3200">D4 16G 3200</option>
+                            <option value="D4 8G 3200">D4 8G 3200</option>
+                            <option value="D4 8G eTT">D4 8G eTT</option>
+                            <option value="D5 16G 4800">D5 16G 4800</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- 2. 股市對比標的 (右軸) -->
+                <div class="setting-group stock-group">
+                    <label for="stockSelect">📈 對比股市:</label>
+                    <select id="stockSelect" onchange="loadChartData()">
+                        <option value="none">無 (單一顯示)</option>
+                        <option value="NVDA">NVIDIA (NVDA)</option>
+                        <option value="TSM">台積電 ADR (TSM)</option>
+                        <option value="SMH_ETF">半導體 ETF (SMH)</option>
+                        <option value="DRAM_ETF">記憶體 ETF (DRAM)</option>
+                    </select>
+                </div>
             </div>
 
-            <!-- 2. 股市對比標的 (右軸) 💡 這裡幫你擴充了四個新選項 -->
-            <div class="setting-group stock-group">
-                <label for="stockSelect">📈 對比股市:</label>
-                <select id="stockSelect" onchange="loadChartData()">
-                    <option value="none">無 (單一顯示)</option>
-                    <option value="NVDA">NVIDIA (NVDA)</option>
-                    <option value="TSM">台積電 ADR (TSM)</option>
-                    <option value="SMH_ETF">半導體 ETF (SMH)</option>
-                    <option value="DRAM_ETF">記憶體 ETF (DRAM)</option>
-                </select>
+            <!-- 下排：數值輸入 (均線 & 字體) -->
+            <div class="panel-row">
+                <!-- 3. 均線週期設定 -->
+                <div class="setting-group ma-group">
+                    <label for="maPeriodInput">📉 均線:</label>
+                    <input type="number" id="maPeriodInput" value="5" min="1" max="100" oninput="loadChartData()">
+                </div>
+                
+                <!-- 4. 字體大小設定 (預設28) -->
+                <div class="setting-group font-group">
+                    <label for="fontSizeInput">🔠 字體:</label>
+                    <input type="number" id="fontSizeInput" value="28" min="10" max="60" oninput="updateFontSize()">
+                </div>
             </div>
-
-            <!-- 3. 共用的均線週期設定 -->
-            <div class="setting-group ma-group">
-                <label for="maPeriodInput">📉 均線週期 (SMA):</label>
-                <input type="number" id="maPeriodInput" value="5" min="1" max="100" oninput="loadChartData()">
-            </div>
-            
-            <button class="btn" onclick="changeFontSize(2)">A+ 放大字體</button>
-            <button class="btn btn-warning" onclick="changeFontSize(-2)">A- 縮小字體</button>
         </div>
 
         <div class="chart-wrapper">
@@ -165,7 +174,7 @@
 
     <script>
         let myChart = null;
-        let globalFontSize = 16; 
+        let globalFontSize = 28; // 預設字體改為 28
 
         // 獨立的 SMA 計算公式
         function calculateSMA(data, period) {
@@ -184,11 +193,14 @@
             return sma;
         }
 
-        function changeFontSize(delta) {
-            globalFontSize += delta;
-            if (globalFontSize < 10) globalFontSize = 10;
-            if (globalFontSize > 36) globalFontSize = 36;
-            loadChartData(); // 重新讀取與繪製
+        // 新的字體更新函數
+        function updateFontSize() {
+            let newSize = parseInt(document.getElementById('fontSizeInput').value);
+            // 確保輸入的數值是有效的數字且在合理範圍內 (例如 10 到 60)
+            if (!isNaN(newSize) && newSize >= 10 && newSize <= 60) {
+                globalFontSize = newSize;
+                loadChartData(); // 重新繪製圖表以套用新字體
+            }
         }
 
         async function loadChartData() {
@@ -311,7 +323,6 @@
 
             // 若有選擇股市資料，則動態加入圖表中 (對應右側 Y1 軸)
             if (label2 !== "none") {
-                // 為了讓圖例顯示更友善，這裡做個小轉換，把代號轉成中文
                 let stockDisplayName = label2;
                 if (label2 === "NVDA") stockDisplayName = "NVIDIA";
                 if (label2 === "TSM") stockDisplayName = "台積電 ADR";
@@ -321,31 +332,31 @@
                 datasets.push({
                     label: `${stockDisplayName} (對比軸)`,
                     data: prices2,
-                    borderColor: '#ff00ff', // 紫紅色做明顯區別
+                    borderColor: '#ff00ff',
                     borderWidth: 3,
-                    borderDash: [5, 5], // 價格線用虛線呈現對比感
+                    borderDash: [5, 5],
                     pointBackgroundColor: '#121212',
                     pointBorderColor: '#ff00ff',
                     pointRadius: 4,
                     pointHoverRadius: 8,
                     fill: false,
                     tension: 0.1,
-                    yAxisID: 'y1', // 指定右軸
-                    spanGaps: true, // 允許跨過週末不斷線
+                    yAxisID: 'y1',
+                    spanGaps: true,
                     order: 2
                 });
 
                 datasets.push({
                     label: `${stockDisplayName} SMA(${maPeriod})`,
                     data: sma2,
-                    borderColor: '#a200ff', // 深紫色均線
+                    borderColor: '#a200ff',
                     borderWidth: 4,
                     pointRadius: 0,
                     pointHoverRadius: 7,
                     fill: false,
                     tension: 0.4,
-                    yAxisID: 'y1', // 指定右軸
-                    spanGaps: true, // 允許跨過週末不斷線
+                    yAxisID: 'y1',
+                    spanGaps: true,
                     order: 1
                 });
             }
@@ -456,7 +467,7 @@
                         },
                         y1: {
                             type: 'linear',
-                            display: (label2 !== "none"), // 只有在有選擇股市時才顯示右軸
+                            display: (label2 !== "none"), 
                             position: 'right',
                             title: {
                                 display: true,
@@ -464,7 +475,7 @@
                                 color: '#ff00ff',
                                 font: { size: globalFontSize, weight: 'bold' }
                             },
-                            grid: { drawOnChartArea: false }, // 右軸不畫網格，避免與左軸網格打架變混亂
+                            grid: { drawOnChartArea: false }, 
                             ticks: {
                                 color: '#ff00ff',
                                 font: { size: globalFontSize, weight: 'bold' }
